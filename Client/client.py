@@ -38,17 +38,22 @@ class UDPClient:
             
             while True:
                 data=input('Inserire comando: ')
-                t1=time.time_ns()
+                t1=time.time_ns()/(10 ** 9)
                 self.sock.sendto(str(data).encode('utf-8'), (self.host, self.port))
                 resp, server_address = self.sock.recvfrom(4096)
-                print('Tempo ricezione risposta: ', time.time_ns()-t1  )
+                print('Tempo ricezione risposta: ', (time.time_ns()/(10 ** 9)-t1)  )
                 self.printwt('[ RECEIVED ]')
                 content = resp.decode()
                 
                 if content.startswith('FAIL'):
+                    content = resp.decode()
                     continue
                 
-                if str(data).lower().startswith('list') or str(data).lower().startswith('exit') :
+                if str(data).lower().startswith('exit') :
+                    print('\n', content, '\n')
+                    return
+                
+                if str(data).lower().startswith('list'):
                     print('\n', content, '\n')
                 
                 if str(data).lower().startswith('get'):
@@ -67,16 +72,14 @@ class UDPClient:
                     file = open('./' + file_name, 'rb')
                     self.sock.sendto(file.read(), (self.host, self.port))
                     file.close()
-                    
                     resp, server_address = self.sock.recvfrom(4096)
                     self.printwt('[ RECEIVED ]')
-                    
                     content = resp.decode()
                     print('\n', content, '\n')
-                    
         except OSError as err:
             print(err)
-
+        except KeyboardInterrupt():
+            return
         finally:
             # close socket
             self.printwt('Closing socket...')
@@ -86,7 +89,7 @@ class UDPClient:
 def main():
     ''' Create a UDP Client, send message to a UDP Server and receive reply. '''
 
-    udp_client = UDPClient('127.0.0.1', 17771)
+    udp_client = UDPClient('127.0.0.1', 10002)
     udp_client.configure_client()
     udp_client.interact_with_server()
 
