@@ -1,4 +1,5 @@
 import socket
+import time
 
 class UDPClient:
     ''' A simple UDP Client '''
@@ -37,16 +38,29 @@ class UDPClient:
             
             while True:
                 data=input('Inserire comando: ')
+                t1=time.time_ns()
                 self.sock.sendto(str(data).encode('utf-8'), (self.host, self.port))
-                
                 resp, server_address = self.sock.recvfrom(4096)
+                print('Tempo ricezione risposta: ', time.time_ns()-t1  )
                 self.printwt('[ RECEIVED ]')
-                
                 content = resp.decode()
-                print('\n', content, '\n')
                 
                 if content.startswith('FAIL'):
                     continue
+                
+                if str(data).lower().startswith('list') or str(data).lower().startswith('exit') :
+                    print('\n', content, '\n')
+                
+                if str(data).lower().startswith('get'):
+                    file_name = str.split(str(data), ' ', 2)[1]
+                    try:
+                        file = open('./' + file_name , 'wb')
+                        file.write(resp)
+                        print('File creato nella cartella del client')
+                    except Exception as info:
+                        print(info)
+                    finally:
+                        file.close()
                 
                 if str(data).lower().startswith('put'):
                     file_name = str.split(str(data), ' ', 2)[1]
@@ -59,7 +73,6 @@ class UDPClient:
                     
                     content = resp.decode()
                     print('\n', content, '\n')
-                    
                     
         except OSError as err:
             print(err)

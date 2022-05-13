@@ -1,6 +1,7 @@
 import socket as sk
 import os
 from os.path import isfile, exists
+import time
 
 # Creiamo il socket
 sock = sk.socket(sk.AF_INET, sk.SOCK_DGRAM)
@@ -28,29 +29,6 @@ def listing(destinationAddress):
             onlyFile=  onlyFile + '- ' + str(elem) + '\r\n'
     data = '\r\n'+onlyFile+'\r\n'
     sock.sendto(data.encode(), destinationAddress)
-
-# def ServerSingolo(address):
-#     while True:
-#         try:    
-#             welcome_message = '\r\nBenvenuto sul Server come posso rendermi utile?\r\n\r\nOpzioni disponibili:\r\n\r\n\tlist -> Restituisce la lista dei nomi dei file disponibili.\r\n\tget -> Restituisce il file se disponibile.\r\n\texit -> Esce\r\n\r\n'
-#             sent = sock.sendto(welcome_message.encode(), address)
-#             print ('sent %s bytes back to %s' % (sent, address))
-#             data, address = sock.recvfrom(4096)
-#             if data.decode('utf8').lower() == 'list':
-#                 listing(address)
-#             elif data.decode('utf8').lower() == 'exit':
-#                 data = 'Connessione conclusa'
-#                 sock.sendto(data.encode(), address)
-#                 print('Spegnimento ')
-#                 break;
-#         except:
-#             pass
-#         finally:
-#             print("Chiusura")
-
-# def respond(client_ind, response):
-#     print(clients[client_ind][0] + ': ' + response)
-#     sock.send(response.encode());
 
 def handle_request(client_ind, data):
     state = states[client_ind]
@@ -164,7 +142,6 @@ try:
             clients.append(address)
             states.append(State.STATE_OPENING)
             files.append('')
-
         index = clients.index(address)
         handle_request(index, data)
         check_for_closed_conns()        # Alternativa all'uso di un lock
