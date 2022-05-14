@@ -2,6 +2,8 @@ import socket
 import time
 from os.path import isfile
 
+from ..Modules.response import Response
+
 class UDPClient:
     ''' A simple UDP Client '''
     def __init__(self, host, port):
@@ -15,12 +17,12 @@ class UDPClient:
         print('Socket creato')
         
     def connection_setup(self):
-        msg = 'HELLO Client connected'
+        msg = Response.RESPONSE_HELLO + ' Client connected'
         self.sock.sendto(msg.encode('utf-8'), (self.host, self.port))
         resp, server_address = self.sock.recvfrom(4096)
         content = resp.decode()
         print('\n', content, '\n')
-        if content.startswith('FAIL'):
+        if content.startswith(Response.RESPONSE_FAIL):
             return False
         return True
     
@@ -58,7 +60,7 @@ class UDPClient:
                 if data.startswith('put'):
                     file_name = str.split(str(data), ' ', 2)[1]
                     if not isfile('./' + file_name):
-                        file_data='FAIL File non trovato, reinserire comando completo.\r\n'
+                        file_data='File non trovato, reinserire comando completo.\r\n'
                         print(file_data)
                         continue
                 
@@ -67,7 +69,7 @@ class UDPClient:
                 print('Tempo ricezione risposta: ', (time.time()-t1)  )
                 content = resp.decode()
                 
-                if content.startswith('FAIL'):
+                if content.startswith(Response.RESPONSE_FAIL):
                     print('\n', content, '\n')
                     continue
                 

@@ -2,6 +2,8 @@ import socket as sk
 import os
 from os.path import isfile, exists
 
+from ..Modules.response import Response
+
 # Creiamo il socket
 sock = sk.socket(sk.AF_INET, sk.SOCK_DGRAM)
 clients=[]
@@ -15,38 +17,60 @@ sock.bind(server_address)
 class State:
     STATE_OPENING = 0
     STATE_REGULAR = 1
-    STATE_WAITFORFILECONTENTS = 2
-    STATE_CLOSED = 3
-    # STATE_WAITFORFILECONTENTS_1 = 3   # wait for 'data' or 'close' command, go to state STATE_WAITFORFILECONTENTS_2 if 'data'
-    # STATE_WAITFORFILECONTENTS_2 = 4   # wait for binary content, go to state STATE_WAITFORFILECONTENTS_1 after receive
+    STATE_WAITFORFILESTATUS = 2   # wait for 'data' or 'close' command, go to state STATE_WAITFORFILEDATA if 'data'
+    STATE_WAITFORFILEDATA = 3   # wait for binary content, go to state STATE_WAITFORFILESTATUS after receive
+    STATE_CLOSED = 4
 
 def connection_opening(client_ind, data):
-        if str.split(data.decode('utf-8'), ' ', 2)[0].lower() == 'hello':
+        if str.split(data.decode('utf-8'), ' ', 2)[0] == Response.RESPONSE_HELLO:
             states[client_ind] = State.STATE_REGULAR
             welcome_message = '\r\nBenvenuto sul Server come posso rendermi utile?\r\n\r\nOpzioni disponibili:\r\n\r\n\tlist -> \t\tRestituisce la lista dei nomi dei file disponibili.\r\n\tget <NomeFile> -> Restituisce il file se disponibile.\r\n\tput <NomeFile> -> Carica il file se disponibile.\r\n\t\texit -> \t\tEsce\r'
             sock.sendto(welcome_message.encode(), clients[client_ind])
             print(clients[client_ind][0] + ': Client connesso')
         else:
-            failure_message = '\r\nFAIL connessione incorretta\r\n'
+            failure_message = '\r\n' + Response.RESPONSE_FAIL + ' connessione incorretta\r\n'
             sock.sendto(failure_message.encode(), clients[client_ind])
             print(clients[client_ind][0] + ': Fallimento connessione')
             states[client_ind] = State.STATE_CLOSED  # Connessione chiusa
 
-def wait_for_file(client_ind, data):
+def wait_for_file_status(client_ind, data):
+    content = data.decode('utf-8')
+    if content == Response.RESPONSE_DATA:
+        response = Response.RESPONSE_OK + ' In attesa...'
+        sock.sendto(response.encode(), clients[client_ind])
+        print(clients[client_ind][0] + ': In attesa...')
+        states[client_ind] = State.STATE_WAITFORFILEDATA
+    elif content == Response.RESPONSE_DONE:
+        response = Response.RESPONSE_OK + ' File chiuso'
+        sock.sendto(response.encode(), clients[client_ind])
+        print(clients[client_ind][0] + ': File chiuso')
+        states[client_ind] = State.STATE_REGULAR
+    else:
+        response = Response.RESPONSE_FAIL + ' Comando errato'
+        sock.sendto(response.encode(), clients[client_ind])
+        print(clients[client_ind][0] + ': Comando errato')
+        states[client_ind] = State.STATE_REGULAR
+
+def wait_for_file_data(client_ind, data):
     try:
-        file = open('./file/'+ files[client_ind], 'wb')
+        file = files[client_ind]
         file.write(data)
+        response = Response.RESPONSE_OK + ' Dato scritto'
+        sock.sendto(response.encode(), clients[client_ind])
+        print(clients[client_ind][0] + ': Dato scritto')
+        states[client_ind] = State.STATE_WAITFORFILESTATUS  # Attesa della prossima direttiva
     except Exception as info:
         print(info)
-    finally:
-        file.close()
+        response = Response.RESPONSE_FAIL + ' Errore'
+        sock.sendto(response.encode(), clients[client_ind])
+        states[client_ind] = State.STATE_REGULAR
         
-    c_data = 'DONE File ricevuto'
-    sock.sendto(c_data.encode(), clients[client_ind])
-    print(clients[client_ind][0] + ': File ricevuto')
+    # c_data = Response.RESPONSE_OK + ' Dato ricevuto'
+    # sock.sendto(c_data.encode(), clients[client_ind])
+    # print(clients[client_ind][0] + ': Dato ricevuto')
         
-    files[client_ind] = ''
-    states[client_ind] = State.STATE_REGULAR    # Ritorno allo stato regolare dopo la scrittura
+    # files[client_ind] = ''
+    # states[client_ind] = State.STATE_WAITFORFILESTATUS  
 
 def listing(destinationAddress):
     files=os.listdir('./file/');
@@ -55,25 +79,25 @@ def listing(destinationAddress):
         if isfile('./file/'+elem):
             onlyFile=  onlyFile + '- ' + str(elem) + '\r\n'
     data = '\r\n'+onlyFile+'\r\n'
-    sock.sendto(data.encode(), destinationAddress)    
+    sock.sendto(data.encode(), destinationAddress)       
 
 def putting(c_data, client_ind):
     if c_data == '':        # Nome del file mancante
-        response='FAIL Nome del file mancante, reinserire comando completo.'
+        response = Response.RESPONSE_FAIL + ' Nome del file mancante, reinserire comando completo.'
         print(clients[client_ind][0] + ': Nome del file mancante')
         sock.sendto(response.encode(), clients[client_ind]);
         return
-    
+
     if exists('./file/'+ c_data):
-        response='FAIL File già esistente'
+        response = Response.RESPONSE_FAIL + ' File già esistente'
         print(clients[client_ind][0] + ': File già esistente')
         sock.sendto(response.encode(), clients[client_ind]);
         return
     
     # creazione file
-    states[client_ind] = State.STATE_WAITFORFILECONTENTS    # Passaggio allo stato di attesa di invio
-    files[client_ind] = c_data
-    
+    states[client_ind] = State.STATE_WAITFORFILESTATUS    # Passaggio allo stato di attesa di invio
+    files[client_ind] = open('./file/'+ c_data, 'wb')
+
     response='OK In attesa del file...'
     print(clients[client_ind][0] + ': In attesa del file...')
     sock.sendto(response.encode(), clients[client_ind])
@@ -92,17 +116,17 @@ def getting(c_data, client_ind):
         finally:
             file.close()
     else:
-        file_data='FAIL File non trovato, reinserire comando completo.\r\n'
+        file_data = Response.RESPONSE_FAIL + ' File non trovato, reinserire comando completo.\r\n'
         print(clients[client_ind][0] + ': File ' + c_data + ' inesistente')
         sock.sendto(file_data.encode(), clients[client_ind])
 
 def exiting(c_data, client_ind):
-    c_data = 'Connessione conclusa'
+    c_data = Response.RESPONSE_OK + 'Connessione conclusa'
     sock.sendto(c_data.encode(), clients[client_ind])
     print(clients[client_ind][0] + ': Chiusura connessione')
-    states[client_ind] = State.STATE_CLOSED # Connessione chiusa
+    states[client_ind] = State.STATE_CLOSED         # Connessione chiusa
 
-def operative_actions(client_ind, data):
+def regular_actions(client_ind, data):
     # data parsing
     data = data.decode('utf-8').lower()
     content = str.split(data, ' ', 2)
@@ -121,7 +145,7 @@ def operative_actions(client_ind, data):
     elif data == 'exit':
         exiting(c_data, client_ind)
     else:
-        c_data = 'FAIL Comando sconosciuto'
+        c_data = Response.RESPONSE_FAIL + ' Comando sconosciuto'
         sock.sendto(c_data.encode(), clients[client_ind])
         print(clients[client_ind][0] + ': Comando sconosciuto')
     
@@ -132,9 +156,11 @@ def handle_request(client_ind, data):
     if state == State.STATE_OPENING:
         connection_opening(client_ind, data)
     elif state == State.STATE_REGULAR:   
-        operative_actions(client_ind, data)
-    elif state == State.STATE_WAITFORFILECONTENTS:
-        wait_for_file(client_ind, data)
+        regular_actions(client_ind, data)
+    elif state == State.STATE_WAITFORFILESTATUS:
+        wait_for_file_status(client_ind, data)
+    elif state == State.STATE_WAITFORFILEDATA:
+        wait_for_file_data(client_ind, data)
 
 def check_for_closed_conns():
     closed = []

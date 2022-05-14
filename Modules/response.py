@@ -1,0 +1,7 @@
+class Response:
+    RESPONSE_HELLO = 'HELLO'
+    RESPONSE_OK = 'OK'
+    RESPONSE_FAIL = 'FAIL'
+    RESPONSE_DATA = 'DATA'
+    RESPONSE_DONE = 'DONE'
+    
