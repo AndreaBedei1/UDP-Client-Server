@@ -20,19 +20,7 @@ class State:
     # STATE_WAITFORFILECONTENTS_1 = 3   # wait for 'data' or 'close' command, go to state STATE_WAITFORFILECONTENTS_2 if 'data'
     # STATE_WAITFORFILECONTENTS_2 = 4   # wait for binary content, go to state STATE_WAITFORFILECONTENTS_1 after receive
 
-def listing(destinationAddress):
-    files=os.listdir('./file/');
-    onlyFile=''
-    for elem in files:
-        if isfile('./file/'+elem):
-            onlyFile=  onlyFile + '- ' + str(elem) + '\r\n'
-    data = '\r\n'+onlyFile+'\r\n'
-    sock.sendto(data.encode(), destinationAddress)
-
-def handle_request(client_ind, data):
-    state = states[client_ind]
-    
-    if state == State.STATE_OPENING:
+def connection_opening(client_ind, data):
         if str.split(data.decode('utf-8'), ' ', 2)[0].lower() == 'hello':
             states[client_ind] = State.STATE_REGULAR
             welcome_message = '\r\nBenvenuto sul Server come posso rendermi utile?\r\n\r\nOpzioni disponibili:\r\n\r\n\tlist -> \t\tRestituisce la lista dei nomi dei file disponibili.\r\n\tget <NomeFile> -> Restituisce il file se disponibile.\r\n\tput <NomeFile> -> Carica il file se disponibile.\r\n\t\texit -> \t\tEsce\r'
@@ -42,83 +30,111 @@ def handle_request(client_ind, data):
             failure_message = '\r\nFAIL connessione incorretta\r\n'
             sock.sendto(failure_message.encode(), clients[client_ind])
             print(clients[client_ind][0] + ': Fallimento connessione')
-            states[client_ind] = State.STATE_CLOSED             # Connessione chiusa
-    elif state == State.STATE_REGULAR:   
-        # data parsing
-        content = str.split(data.decode('utf-8'), ' ', 2)
-        cmd = content[0].lower()
-        c_data = ''
+            states[client_ind] = State.STATE_CLOSED  # Connessione chiusa
+
+def wait_for_file(client_ind, data):
+    try:
+        file = open('./file/'+ files[client_ind], 'wb')
+        file.write(data)
+    except Exception as info:
+        print(info)
+    finally:
+        file.close()
         
-        if len(content) == 2:
-            c_data = content[1]
-        if cmd == 'list':
-            print(clients[client_ind][0] + ': Listing')
-            listing(address)
-        elif cmd == 'put':
-            if c_data == '':        # Nome del file mancante
-                response='FAIL Nome del file mancante, reinserire comando completo.'
-                print(clients[client_ind][0] + ': Nome del file mancante')
-                sock.sendto(response.encode(), clients[client_ind]);
-                #respond(client_ind, 'FAIL Nome del file mancante')
-                return
-            
-            if exists('./file/'+ c_data):
-                response='FAIL File già esistente'
-                print(clients[client_ind][0] + ': File già esistente')
-                sock.sendto(response.encode(), clients[client_ind]);
-                return
-            
-            # creazione file
-            
-            states[client_ind] = State.STATE_WAITFORFILECONTENTS    # Passaggio allo stato di attesa di invio
-            files[client_ind] = c_data
-            
-            response='OK In attesa del file...'
-            print(clients[client_ind][0] + ': In attesa del file...')
-            sock.sendto(response.encode(), clients[client_ind])
-        elif cmd == 'get':
-            if isfile('./file/'+ c_data):
-                try:
-                    print(clients[client_ind][0] + ': Richiesta get su file ' + c_data)
-                    file=open('./file/'+ c_data, 'rb')
-                    #sock.send(c_data.encode())
-                    file_data=file.read()
-                    sock.sendto(file_data, clients[client_ind])
-                except Exception as info:
-                    file_data=''
-                    print(info)
-                finally:
-                    file.close()
-            else:
-                file_data='FAIL File non trovato, reinserire comando completo.\r\n'
-                print(clients[client_ind][0] + ': File ' + c_data + ' inesistente')
-                sock.sendto(file_data.encode(), clients[client_ind])
-        elif cmd == 'exit':
-            c_data = 'Connessione conclusa'
-            sock.sendto(c_data.encode(), clients[client_ind])
-            print(clients[client_ind][0] + ': Chiusura connessione')
-            
-            states[client_ind] = State.STATE_CLOSED             # Connessione chiusa
-        else:
-            c_data = 'FAIL Comando sconosciuto'
-            sock.sendto(c_data.encode(), clients[client_ind])
-            print(clients[client_ind][0] + ': Comando sconosciuto')
-            
-    elif state == State.STATE_WAITFORFILECONTENTS:
+    c_data = 'DONE File ricevuto'
+    sock.sendto(c_data.encode(), clients[client_ind])
+    print(clients[client_ind][0] + ': File ricevuto')
+        
+    files[client_ind] = ''
+    states[client_ind] = State.STATE_REGULAR    # Ritorno allo stato regolare dopo la scrittura
+
+def listing(destinationAddress):
+    files=os.listdir('./file/');
+    onlyFile=''
+    for elem in files:
+        if isfile('./file/'+elem):
+            onlyFile=  onlyFile + '- ' + str(elem) + '\r\n'
+    data = '\r\n'+onlyFile+'\r\n'
+    sock.sendto(data.encode(), destinationAddress)    
+
+def putting(c_data, client_ind):
+    if c_data == '':        # Nome del file mancante
+        response='FAIL Nome del file mancante, reinserire comando completo.'
+        print(clients[client_ind][0] + ': Nome del file mancante')
+        sock.sendto(response.encode(), clients[client_ind]);
+        return
+    
+    if exists('./file/'+ c_data):
+        response='FAIL File già esistente'
+        print(clients[client_ind][0] + ': File già esistente')
+        sock.sendto(response.encode(), clients[client_ind]);
+        return
+    
+    # creazione file
+    states[client_ind] = State.STATE_WAITFORFILECONTENTS    # Passaggio allo stato di attesa di invio
+    files[client_ind] = c_data
+    
+    response='OK In attesa del file...'
+    print(clients[client_ind][0] + ': In attesa del file...')
+    sock.sendto(response.encode(), clients[client_ind])
+
+def getting(c_data, client_ind):
+    if isfile('./file/'+ c_data):
         try:
-            file = open('./file/'+ files[client_ind], 'wb')
-            file.write(data)
+            print(clients[client_ind][0] + ': Richiesta get su file ' + c_data)
+            file=open('./file/'+ c_data, 'rb')
+            #sock.send(c_data.encode())
+            file_data=file.read()
+            sock.sendto(file_data, clients[client_ind])
         except Exception as info:
+            file_data=''
             print(info)
         finally:
             file.close()
-            
-        c_data = 'DONE File ricevuto'
+    else:
+        file_data='FAIL File non trovato, reinserire comando completo.\r\n'
+        print(clients[client_ind][0] + ': File ' + c_data + ' inesistente')
+        sock.sendto(file_data.encode(), clients[client_ind])
+
+def exiting(c_data, client_ind):
+    c_data = 'Connessione conclusa'
+    sock.sendto(c_data.encode(), clients[client_ind])
+    print(clients[client_ind][0] + ': Chiusura connessione')
+    states[client_ind] = State.STATE_CLOSED # Connessione chiusa
+
+def operative_actions(client_ind, data):
+    # data parsing
+    data = data.decode('utf-8').lower()
+    content = str.split(data, ' ', 2)
+    cmd = content[0]
+    c_data = ''
+    if len(content) == 2:
+        c_data = content[1]
+    
+    if data == 'list':
+        print(clients[client_ind][0] + ': Listing')
+        listing(address)
+    elif cmd == 'put':
+        putting(c_data, client_ind)
+    elif cmd == 'get':
+        getting(c_data, client_ind)
+    elif data == 'exit':
+        exiting(c_data, client_ind)
+    else:
+        c_data = 'FAIL Comando sconosciuto'
         sock.sendto(c_data.encode(), clients[client_ind])
-        print(clients[client_ind][0] + ': File ricevuto')
-            
-        files[client_ind] = ''
-        states[client_ind] = State.STATE_REGULAR    # Ritorno allo stato regolare dopo la scrittura
+        print(clients[client_ind][0] + ': Comando sconosciuto')
+    
+
+def handle_request(client_ind, data):
+    state = states[client_ind]
+    
+    if state == State.STATE_OPENING:
+        connection_opening(client_ind, data)
+    elif state == State.STATE_REGULAR:   
+        operative_actions(client_ind, data)
+    elif state == State.STATE_WAITFORFILECONTENTS:
+        wait_for_file(client_ind, data)
 
 def check_for_closed_conns():
     closed = []
@@ -136,7 +152,6 @@ try:
         print("In ascolto")
         data, address = sock.recvfrom(4096)
         print('received %s bytes from %s' % (len(data), address))
-        print (data.decode('utf8'))
         if address not in clients:
             clients.append(address)
             states.append(State.STATE_OPENING)
