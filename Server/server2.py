@@ -9,6 +9,8 @@ sock = sk.socket(sk.AF_INET, sk.SOCK_DGRAM)
 clients=[]
 states=[]
 files=[]
+BUF_SIZE = 4096
+
 # Associamo il socket alla porta
 server_address = ('localhost', 10002)
 print ('\n\r starting up on %s port %s' % server_address)
@@ -19,7 +21,15 @@ class State:
     STATE_REGULAR = 1
     STATE_WAITFORFILESTATUS = 2   # wait for 'data' or 'close' command, go to state STATE_WAITFORFILEDATA if 'data'
     STATE_WAITFORFILEDATA = 3   # wait for binary content, go to state STATE_WAITFORFILESTATUS after receive
-    STATE_CLOSED = 4
+    STATE_SENDFILESTATUS = 4
+    STATE_SENDFILEDATA = 5
+    STATE_SENDCOMPLETE = 6
+    STATE_CLOSED = 7
+    
+def send_message(client_ind, response_type, message):       # Da usare in giro
+    response = '\r\n' + response_type + ' ' + message + '\r\n'
+    sock.sendto(response.encode(), clients[client_ind])
+    print(clients[client_ind][0] + ': ' + message)
 
 def connection_opening(client_ind, data):
         if str.split(data.decode('utf-8'), ' ', 2)[0] == Response.RESPONSE_HELLO:
@@ -44,11 +54,15 @@ def wait_for_file_status(client_ind, data):
         response = Response.RESPONSE_OK + ' File chiuso'
         sock.sendto(response.encode(), clients[client_ind])
         print(clients[client_ind][0] + ': File chiuso')
+        files[client_ind].close()                           # Chiusura file
+        files[client_ind] = ''
         states[client_ind] = State.STATE_REGULAR
     else:
-        response = Response.RESPONSE_FAIL + ' Comando errato'
+        response = Response.RESPONSE_FAIL + ' Comando errato. Ricezione abortita'
         sock.sendto(response.encode(), clients[client_ind])
-        print(clients[client_ind][0] + ': Comando errato')
+        print(clients[client_ind][0] + ': Comando errato. Ricezione abortita')
+        files[client_ind].close()                           # Chiusura file
+        files[client_ind] = ''
         states[client_ind] = State.STATE_REGULAR
 
 def wait_for_file_data(client_ind, data):
@@ -106,15 +120,22 @@ def getting(c_data, client_ind):
     if isfile('./file/'+ c_data):
         try:
             print(clients[client_ind][0] + ': Richiesta get su file ' + c_data)
-            file=open('./file/'+ c_data, 'rb')
+            files[client_ind] = open('./file/'+ c_data, 'rb')
             #sock.send(c_data.encode())
-            file_data=file.read()
-            sock.sendto(file_data, clients[client_ind])
+            response = Response.RESPONSE_OK + ' File disponibile'
+            sock.sendto(response.encode(), clients[client_ind])
+            print(clients[client_ind][0] + ': File disponibile')
+            states[client_ind] = State.STATE_SENDFILESTATUS
         except Exception as info:
-            file_data=''
             print(info)
-        finally:
-            file.close()
+            response = Response.RESPONSE_FAIL + ' Errore. Invio abortito'
+            sock.sendto(response.encode(), clients[client_ind])
+            print(clients[client_ind][0] + ': Errore. Invio abortito')
+            states[client_ind] = State.STATE_REGULAR
+            try:
+                files[client_ind].close()
+            finally:
+                return
     else:
         file_data = Response.RESPONSE_FAIL + ' File non trovato, reinserire comando completo.\r\n'
         print(clients[client_ind][0] + ': File ' + c_data + ' inesistente')
@@ -148,7 +169,38 @@ def regular_actions(client_ind, data):
         c_data = Response.RESPONSE_FAIL + ' Comando sconosciuto'
         sock.sendto(c_data.encode(), clients[client_ind])
         print(clients[client_ind][0] + ': Comando sconosciuto')
-    
+        
+def send_file_status(client_ind, data):
+    content = data.decode('utf-8')
+    if content == Response.RESPONSE_OK:
+        file = files[client_ind]
+        pos = file.tell()
+        if file.read(BUF_SIZE):     # Lettura nel file per capire se è finito o meno
+            sock.sendto(Response.RESPONSE_DATA.encode(), clients[client_ind])
+            states[client_ind] = State.STATE_SENDFILEDATA
+            file.seek(pos, 0)       # Ripristino posizione originale
+            print(clients[client_ind][0] + ': Invio stato...')
+        else:
+            sock.sendto(Response.RESPONSE_DONE.encode(), clients[client_ind])
+            states[client_ind] = State.STATE_SENDCOMPLETE
+            file.close()
+            files[client_ind] = ''
+    else:
+        send_message(client_ind, Response.RESPONSE_FAIL, 'Comando errato. Invio abortito')
+        files[client_ind].close();
+        files[client_ind] = ''
+        states[client_ind] = State.STATE_REGULAR
+
+def send_file_data(client_ind, data):
+    file = files[client_ind]
+    f_data = file.read(BUF_SIZE)
+    sock.sendto(f_data, clients[client_ind])
+    states[client_ind] = State.STATE_SENDFILESTATUS
+    print(clients[client_ind][0] + ': Invio dati...')
+
+def send_complete(client_ind, data):
+    states[client_ind] = State.STATE_REGULAR
+    print(clients[client_ind][0] + ': Invio concluso.')
 
 def handle_request(client_ind, data):
     state = states[client_ind]
@@ -161,6 +213,12 @@ def handle_request(client_ind, data):
         wait_for_file_status(client_ind, data)
     elif state == State.STATE_WAITFORFILEDATA:
         wait_for_file_data(client_ind, data)
+    elif state == State.STATE_SENDFILESTATUS:
+        send_file_status(client_ind, data)
+    elif state == State.STATE_SENDFILEDATA:
+        send_file_data(client_ind, data)
+    elif state == State.STATE_SENDCOMPLETE:
+        send_complete(client_ind, data)
 
 def check_for_closed_conns():
     closed = []
@@ -176,7 +234,7 @@ def check_for_closed_conns():
 try:
     while True:
         print("In ascolto")
-        data, address = sock.recvfrom(4096)
+        data, address = sock.recvfrom(BUF_SIZE)
         print('received %s bytes from %s' % (len(data), address))
         if address not in clients:
             clients.append(address)
