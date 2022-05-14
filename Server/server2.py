@@ -9,7 +9,7 @@ sock = sk.socket(sk.AF_INET, sk.SOCK_DGRAM)
 clients=[]
 states=[]
 files=[]
-# associamo il socket alla porta
+# Associamo il socket alla porta
 server_address = ('localhost', 10002)
 print ('\n\r starting up on %s port %s' % server_address)
 sock.bind(server_address)
