@@ -13,19 +13,43 @@ class UDPClient:
         ''' Configure the client to use UDP protocol with IPv4 addressing '''
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         print('Socket creato')
+        
+    def connection_setup(self):
+        msg = 'HELLO Client connected'
+        self.sock.sendto(msg.encode('utf-8'), (self.host, self.port))
+        resp, server_address = self.sock.recvfrom(4096)
+        content = resp.decode()
+        print('\n', content, '\n')
+        if content.startswith('FAIL'):
+            return False
+        return True
+    
+    def get_file(self, data, resp):
+        file_name = str.split(str(data), ' ', 2)[1]
+        if isfile('./' + file_name):
+            print('Esiste già un file con questo nome nella cartella, ma verrà sovrascritto')
+        try:
+            file = open('./' + file_name , 'wb')
+            file.write(resp)
+            print('File creato nella cartella corrente')
+        except Exception as info:
+            print(info)
+        finally:
+            file.close()
+            
+    def put_file(self, file_name):
+        file = open('./' + file_name, 'rb')
+        self.sock.sendto(file.read(), (self.host, self.port))
+        file.close()
+        resp, server_address = self.sock.recvfrom(4096)
+        content = resp.decode()
+        print('\n', content, '\n')
 
     def interact_with_server(self):
         ''' Send request to a UDP Server and receive reply from it. '''
         try:
-            msg = 'HELLO Client connected'
-            self.sock.sendto(msg.encode('utf-8'), (self.host, self.port))
-            resp, server_address = self.sock.recvfrom(4096)
-            content = resp.decode()
-            print('\n', content, '\n')
-            
-            if content.startswith('FAIL'):
-                return
-            
+            if not self.connection_setup():
+               return
             while True:
                 data=input('Inserire comando: ')
                 data=data.lower()
@@ -47,33 +71,16 @@ class UDPClient:
                     print('\n', content, '\n')
                     continue
                 
-                if str(data).lower().startswith('exit') :
+                if data.startswith('exit') :
                     print('\n', content, '\n')
                     return
-                
-                if str(data).lower().startswith('list'):
+                elif data.startswith('list'):
                     print('\n', content, '\n')
-                
-                if str(data).lower().startswith('get'):
-                    file_name = str.split(str(data), ' ', 2)[1]
-                    if isfile('./' + file_name):
-                        print('Esiste già un file con questo nome nella cartella, ma verrà sovrascritto')
-                    try:
-                        file = open('./' + file_name , 'wb')
-                        file.write(resp)
-                        print('File creato nella cartella corrente')
-                    except Exception as info:
-                        print(info)
-                    finally:
-                        file.close()
-                
-                if str(data).lower().startswith('put'):                    
-                    file = open('./' + file_name, 'rb')
-                    self.sock.sendto(file.read(), (self.host, self.port))
-                    file.close()
-                    resp, server_address = self.sock.recvfrom(4096)
-                    content = resp.decode()
-                    print('\n', content, '\n')
+                elif data.startswith('get'):
+                    self.get_file(data, resp)
+                elif data.startswith('put'):  
+                    self.put_file(file_name)
+                    
                     
         except OSError as err:
             print(err)
