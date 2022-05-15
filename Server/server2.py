@@ -1,8 +1,11 @@
 import socket as sk
+import sys
 import os
 from os.path import isfile, exists
 
-from ..Modules.response import Response
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from Modules.response import Response
 
 # Creiamo il socket
 sock = sk.socket(sk.AF_INET, sk.SOCK_DGRAM)

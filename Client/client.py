@@ -1,8 +1,12 @@
 import socket
 import time
+import sys
+import os
 from os.path import isfile
 
-from ..Modules.response import Response
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from Modules.response import Response
 
 class UDPClient:
     ''' A simple UDP Client '''
