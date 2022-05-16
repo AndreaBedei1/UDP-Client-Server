@@ -1,3 +1,5 @@
+BUF_SIZE = 4096
+
 class Response:
     RESPONSE_HELLO = 'HELLO'
     RESPONSE_OK = 'OK'
