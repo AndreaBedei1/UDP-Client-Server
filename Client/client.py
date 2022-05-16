@@ -38,14 +38,19 @@ class UDPClient:
     
     def get_file(self, data):
         file_name = str.split(str(data), ' ', 2)[1]
+        
         if isfile('./' + file_name):
             print('Esiste già un file con questo nome nella cartella, ma verrà sovrascritto')
-        try:
+           
+        resp, server_address = self.sock.recvfrom(BUF_SIZE)
+        receiving = False
+        if str(resp.decode()).startswith(Response.RESPONSE_FAIL):
+            print('File inesistente sul server')
+            return
+        try:            
+
             file = open('./' + file_name , 'wb')
             print('File creato nella cartella corrente')
-            
-            resp, server_address = self.sock.recvfrom(BUF_SIZE)
-            receiving = False
             
             print('Ricezione disponibilità')   
             if resp.decode('utf-8').startswith(Response.RESPONSE_OK):
@@ -97,12 +102,25 @@ class UDPClient:
                 t1=time.time()
                 
                 if data.startswith('put'):
-                    file_name = str.split(str(data), ' ', 2)[1]
+                    
+                    try:
+                        file_name = str.split(str(data), ' ', 2)[1]
+                    except:
+                        print('Errore nalla scrittura del comando, reinserirlo correttamente')
+                        continue
+                    
                     if not isfile('./' + file_name):
                         file_data='File non trovato, reinserire comando completo.\r\n'
                         print(file_data)
                         continue
-                
+
+                if data.startswith('get'):
+                    try:
+                        file_name = str.split(str(data), ' ', 2)[1]
+                    except:
+                        print('Errore nalla scrittura del comando, reinserirlo correttamente')
+                        continue
+
                 self.sock.sendto(str(data).encode('utf-8'), (self.host, self.port))
                 # resp, server_address = self.sock.recvfrom(BUF_SIZE)
                 # print('Tempo ricezione risposta: ', (time.time()-t1)  )
@@ -124,8 +142,13 @@ class UDPClient:
                     self.get_file(data)
                 elif data.startswith('put'):  
                     self.put_file(file_name)
-                    
-                    
+                else :
+                    resp, server_address = self.sock.recvfrom(BUF_SIZE)
+                    content = resp.decode()
+                    print('\n', content, '\n')
+                
+                
+                print('Tempo ricezione risposta: ', (time.time()-t1)  )
         except OSError as err:
             print(err)
         except KeyboardInterrupt():
