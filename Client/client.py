@@ -7,6 +7,7 @@ from os.path import isfile
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from Modules.response import Response
+from Modules.response import BUF_SIZE
 
 class UDPClient:
     ''' A simple UDP Client '''
@@ -23,21 +24,55 @@ class UDPClient:
     def connection_setup(self):
         msg = Response.RESPONSE_HELLO + ' Client connected'
         self.sock.sendto(msg.encode('utf-8'), (self.host, self.port))
-        resp, server_address = self.sock.recvfrom(4096)
+        resp, server_address = self.sock.recvfrom(BUF_SIZE)
         content = resp.decode()
         print('\n', content, '\n')
         if content.startswith(Response.RESPONSE_FAIL):
             return False
         return True
     
-    def get_file(self, data, resp):
+    def get_list(self):
+        resp, server_address = self.sock.recvfrom(BUF_SIZE)
+        content = resp.decode()
+        print('\n', content, '\n')
+    
+    def get_file(self, data):
         file_name = str.split(str(data), ' ', 2)[1]
         if isfile('./' + file_name):
             print('Esiste già un file con questo nome nella cartella, ma verrà sovrascritto')
         try:
             file = open('./' + file_name , 'wb')
-            file.write(resp)
             print('File creato nella cartella corrente')
+            
+            resp, server_address = self.sock.recvfrom(BUF_SIZE)
+            receiving = False
+            
+            print('Ricezione disponibilità')   
+            if resp.decode('utf-8').startswith(Response.RESPONSE_OK):
+                self.sock.sendto(Response.RESPONSE_OK.encode(), (self.host, self.port))
+                receiving = True
+                
+            while receiving:
+                print('Ricezione status') 
+                resp, server_address = self.sock.recvfrom(BUF_SIZE)
+                if resp.decode('utf-8') == Response.RESPONSE_DATA:
+                    self.sock.sendto(Response.RESPONSE_OK.encode(), (self.host, self.port))
+                    print('Invio OK dopo status')
+
+                    resp, server_address = self.sock.recvfrom(BUF_SIZE)
+                    file.write(resp)
+                    print('Ricezione dati')
+                    
+                    self.sock.sendto(Response.RESPONSE_OK.encode(), (self.host, self.port))
+                    print('Invio OK dopo dati')
+                elif resp.decode('utf-8') == Response.RESPONSE_DONE:
+                    file.close()
+                    print('Ricezione conclusa')
+                    self.sock.sendto(Response.RESPONSE_OK.encode(), (self.host, self.port))
+                    receiving = False
+                else:
+                    file.close()
+                    receiving = False
         except Exception as info:
             print(info)
         finally:
@@ -47,7 +82,7 @@ class UDPClient:
         file = open('./' + file_name, 'rb')
         self.sock.sendto(file.read(), (self.host, self.port))
         file.close()
-        resp, server_address = self.sock.recvfrom(4096)
+        resp, server_address = self.sock.recvfrom(BUF_SIZE)
         content = resp.decode()
         print('\n', content, '\n')
 
@@ -69,21 +104,24 @@ class UDPClient:
                         continue
                 
                 self.sock.sendto(str(data).encode('utf-8'), (self.host, self.port))
-                resp, server_address = self.sock.recvfrom(4096)
-                print('Tempo ricezione risposta: ', (time.time()-t1)  )
-                content = resp.decode()
+                # resp, server_address = self.sock.recvfrom(BUF_SIZE)
+                # print('Tempo ricezione risposta: ', (time.time()-t1)  )
+                # content = resp.decode()
                 
-                if content.startswith(Response.RESPONSE_FAIL):
-                    print('\n', content, '\n')
-                    continue
+                # if content.startswith(Response.RESPONSE_FAIL):
+                #     resp, server_address = self.sock.recvfrom(BUF_SIZE)
+                #     content = resp.decode()  
+                #     continue
                 
                 if data.startswith('exit') :
+                    resp, server_address = self.sock.recvfrom(BUF_SIZE)
+                    content = resp.decode()
                     print('\n', content, '\n')
                     return
                 elif data.startswith('list'):
-                    print('\n', content, '\n')
+                    self.get_list()
                 elif data.startswith('get'):
-                    self.get_file(data, resp)
+                    self.get_file(data)
                 elif data.startswith('put'):  
                     self.put_file(file_name)
                     

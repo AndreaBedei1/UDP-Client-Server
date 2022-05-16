@@ -6,13 +6,13 @@ from os.path import isfile, exists
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from Modules.response import Response
+from Modules.response import BUF_SIZE
 
 # Creiamo il socket
 sock = sk.socket(sk.AF_INET, sk.SOCK_DGRAM)
 clients=[]
 states=[]
 files=[]
-BUF_SIZE = 4096
 
 # Associamo il socket alla porta
 server_address = ('localhost', 10002)
