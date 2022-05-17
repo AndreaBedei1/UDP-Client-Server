@@ -51,12 +51,9 @@ class ServerThread(threading.Thread):
                     index = self.clients.index(address)
                     self.handle_request(index, data)
                     self.check_for_closed_conns()        # Alternativa all'uso di un lock
-                except OSError as e:
-                    print(e)
+                except OSError:
                     self.norecv = True
                     continue
-                except KeyboardInterrupt as e:
-                    print(e)
         finally:
             self.sock.close()
 
