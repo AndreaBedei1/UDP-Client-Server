@@ -128,7 +128,7 @@ class UDPClient:
                     
         except OSError as err:
             print(err)
-        except KeyboardInterrupt():
+        except KeyboardInterrupt:
             return
         finally:
             # close socket
