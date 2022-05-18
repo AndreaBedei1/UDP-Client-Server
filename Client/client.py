@@ -99,7 +99,6 @@ class UDPClient:
             threshold = tenth 
             content = file.read(BUF_SIZE)
             while content:
-                time.sleep(0.01)
                 pos = file.tell()
                 if pos >= threshold:
                     perc = perc + 10

@@ -79,7 +79,7 @@ class ServerThread(threading.Thread):
         if content == Response.RESPONSE_DATA:
             response = Response.RESPONSE_OK + ' In attesa...'
             self.sock.sendto(response.encode(), self.clients[client_ind])
-            print(self.clients[client_ind][0] + ': In attesa...')
+            #print(self.clients[client_ind][0] + ': In attesa...')
             self.states[client_ind] = State.STATE_WAITFORFILEDATA
         elif content == Response.RESPONSE_DONE:
             response = Response.RESPONSE_OK + ' File chiuso'
@@ -102,20 +102,13 @@ class ServerThread(threading.Thread):
             file.write(data)
             response = Response.RESPONSE_OK + ' Dato scritto'
             self.sock.sendto(response.encode(), self.clients[client_ind])
-            print(self.clients[client_ind][0] + ': Dato scritto')
+            #print(self.clients[client_ind][0] + ': Dato scritto')
             self.states[client_ind] = State.STATE_WAITFORFILESTATUS  # Attesa della prossima direttiva
         except Exception as info:
             print(info)
             response = Response.RESPONSE_FAIL + ' Errore'
             self.sock.sendto(response.encode(), self.clients[client_ind])
             self.states[client_ind] = State.STATE_REGULAR
-            
-        # c_data = Response.RESPONSE_OK + ' Dato ricevuto'
-        # sock.sendto(c_data.encode(), clients[client_ind])
-        # print(clients[client_ind][0] + ': Dato ricevuto')
-            
-        # files[client_ind] = ''
-        # states[client_ind] = State.STATE_WAITFORFILESTATUS  
     
     def listing(self, destinationAddress):
         files=os.listdir('./file/');
@@ -132,7 +125,7 @@ class ServerThread(threading.Thread):
             print(self.clients[client_ind][0] + ': Nome del file mancante')
             self.sock.sendto(response.encode(), self.clients[client_ind]);
             return
-        
+               
         if '../' in c_data:
             self.send_message(client_ind, Response.RESPONSE_FAIL, 'Percorso a file illegale')
             return
@@ -148,7 +141,7 @@ class ServerThread(threading.Thread):
         self.files[client_ind] = open('./file/'+ c_data, 'wb')
     
         response='OK In attesa del file...'
-        print(self.clients[client_ind][0] + ': In attesa del file...')
+        #print(self.clients[client_ind][0] + ': In attesa del file...')
         self.sock.sendto(response.encode(), self.clients[client_ind])
     
     def getting(self, c_data, client_ind):
