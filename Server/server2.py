@@ -39,8 +39,8 @@ class ServerThread(threading.Thread):
         try:
             while self.do_run:
                 try:
-                    if not self.norecv:
-                        print("In ascolto")
+                    #if not self.norecv:
+                        #print("In ascolto")
                     data, address = self.sock.recvfrom(BUF_SIZE)
                     self.norecv = False
                     # print(address[0] + ': ' + data.decode('utf-8'))
@@ -218,7 +218,7 @@ class ServerThread(threading.Thread):
                 self.sock.sendto(Response.RESPONSE_DATA.encode(), self.clients[client_ind])
                 self.states[client_ind] = State.STATE_SENDFILEDATA
                 file.seek(pos, 0)       # Ripristino posizione originale
-                print(self.clients[client_ind][0] + ': Invio stato...')
+                #print(self.clients[client_ind][0] + ': Invio stato...')
             else:
                 self.sock.sendto(Response.RESPONSE_DONE.encode(), self.clients[client_ind])
                 self.states[client_ind] = State.STATE_SENDCOMPLETE
@@ -235,7 +235,7 @@ class ServerThread(threading.Thread):
         f_data = file.read(BUF_SIZE)
         self.sock.sendto(f_data, self.clients[client_ind])
         self.states[client_ind] = State.STATE_SENDFILESTATUS
-        print(self.clients[client_ind][0] + ': Invio dati...')
+        #print(self.clients[client_ind][0] + ': Invio dati...')
     
     def send_complete(self, client_ind, data):
         self.states[client_ind] = State.STATE_REGULAR

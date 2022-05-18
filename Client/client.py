@@ -54,21 +54,22 @@ class UDPClient:
             print('Ricezione disponibilità', flush = True)   
             if resp.decode('utf-8').startswith(Response.RESPONSE_OK):
                 self.sock.sendto(Response.RESPONSE_OK.encode(), (self.host, self.port))
+                print("Inizio ricezione, attendere...")
                 receiving = True
                 
             while receiving:
-                print('Ricezione status', flush = True) 
+                #print('Ricezione status', flush = True) 
                 resp, server_address = self.sock.recvfrom(BUF_SIZE)
                 if resp.decode('utf-8') == Response.RESPONSE_DATA:
                     self.sock.sendto(Response.RESPONSE_OK.encode(), (self.host, self.port))
-                    print('Invio OK dopo status', flush = True)
+                    #print('Invio OK dopo status', flush = True)
 
                     resp, server_address = self.sock.recvfrom(BUF_SIZE)
                     file.write(resp)
-                    print('Ricezione dati', flush = True)
+                    #print('Ricezione dati', flush = True)
                     
                     self.sock.sendto(Response.RESPONSE_OK.encode(), (self.host, self.port))
-                    print('Invio OK dopo dati', flush = True)
+                    #print('Invio OK dopo dati', flush = True)
                 elif resp.decode('utf-8') == Response.RESPONSE_DONE:
                     file.close()
                     print('Ricezione conclusa', flush = True)
@@ -158,15 +159,6 @@ class UDPClient:
                         continue
 
                 self.sock.sendto(str(data).encode('utf-8'), (self.host, self.port))
-                # resp, server_address = self.sock.recvfrom(BUF_SIZE)
-                # print('Tempo ricezione risposta: ', (time.time()-t1)  )
-                # content = resp.decode()
-                
-                # if content.startswith(Response.RESPONSE_FAIL):
-                #     resp, server_address = self.sock.recvfrom(BUF_SIZE)
-                #     content = resp.decode()  
-                #     continue
-                
                 if l_data == 'exit' :
                     resp, server_address = self.sock.recvfrom(BUF_SIZE)
                     content = resp.decode()
@@ -181,9 +173,7 @@ class UDPClient:
                 else :
                     resp, server_address = self.sock.recvfrom(BUF_SIZE)
                     content = resp.decode()
-                    print('\n', content, '\n', flush = True)
-                
-                
+                    print('\n', content, '\n', flush = True)    
                 print('Tempo ricezione risposta: ', (time.time()-t1), flush = True)
         except OSError as err:
             print(err, flush = True)
