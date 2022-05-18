@@ -167,7 +167,7 @@ class UDPClient:
                 #     content = resp.decode()  
                 #     continue
                 
-                if l_data.startswith('exit') :
+                if l_data == 'exit' :
                     resp, server_address = self.sock.recvfrom(BUF_SIZE)
                     content = resp.decode()
                     print('\n', content, '\n', flush = True)
