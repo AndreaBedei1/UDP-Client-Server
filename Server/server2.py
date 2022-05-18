@@ -132,7 +132,11 @@ class ServerThread(threading.Thread):
             print(self.clients[client_ind][0] + ': Nome del file mancante')
             self.sock.sendto(response.encode(), self.clients[client_ind]);
             return
-    
+        
+        if '../' in c_data:
+            self.send_message(client_ind, Response.RESPONSE_FAIL, 'Percorso a file illegale')
+            return
+            
         if exists('./file/'+ c_data):
             response = Response.RESPONSE_FAIL + ' File già esistente'
             print(self.clients[client_ind][0] + ': File già esistente')
@@ -148,6 +152,10 @@ class ServerThread(threading.Thread):
         self.sock.sendto(response.encode(), self.clients[client_ind])
     
     def getting(self, c_data, client_ind):
+        if '../' in c_data:
+            self.send_message(client_ind, Response.RESPONSE_FAIL, 'Percorso a file illegale')
+            return
+        
         if isfile('./file/'+ c_data):
             try:
                 print(self.clients[client_ind][0] + ': Richiesta get su file ' + c_data)
