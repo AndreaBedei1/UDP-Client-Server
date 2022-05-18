@@ -43,7 +43,7 @@ class ServerThread(threading.Thread):
                         print("In ascolto")
                     data, address = self.sock.recvfrom(BUF_SIZE)
                     self.norecv = False
-                    print('received %s bytes from %s' % (len(data), address))
+                    # print(address[0] + ': ' + data.decode('utf-8'))
                     if address not in self.clients:
                         self.clients.append(address)
                         self.states.append(State.STATE_OPENING)
@@ -180,9 +180,9 @@ class ServerThread(threading.Thread):
     
     def regular_actions(self, client_ind, data):
         # data parsing
-        data = data.decode('utf-8').lower()
+        data = data.decode('utf-8')
         content = str.split(data, ' ', 2)
-        cmd = content[0]
+        cmd = content[0].lower()
         c_data = ''
         if len(content) == 2:
             c_data = content[1]
