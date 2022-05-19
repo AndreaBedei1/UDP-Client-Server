@@ -4,23 +4,25 @@ import sys
 import os
 from os.path import isfile
 
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
+sys.path.append(os.path.dirname(os.path.dirname(__file__))) # DIRE A CHE SERVE (PRENDE IL PATH DELLA CARTELLA FILE).
 from Modules.response import Response
 from Modules.response import BUF_SIZE
 
+
+
 class UDPClient:
-    ''' A simple UDP Client '''
+    # Costruttore.
     def __init__(self, host, port):
-        self.host = host    # Host address
-        self.port = port    # Host port
-        self.sock = None    # Socket
+        self.host = host    # Indiizzo host.
+        self.port = port    # Porta host.
+        self.sock = None    # Socket.
 
     def configure_client(self):
-        ''' Configure the client to use UDP protocol with IPv4 addressing '''
+        # Creazione client socket usando protocollo UDP con indirizzamento IPV4.
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         print('Socket creato', flush = True)
         
+    # Funzione che verfica tenta d'instaurare la connessione tra client e server, restituendo un booleano.
     def connection_setup(self):
         msg = Response.RESPONSE_HELLO + ' Client connected'
         self.sock.sendto(msg.encode('utf-8'), (self.host, self.port))
@@ -30,6 +32,33 @@ class UDPClient:
         if content.startswith(Response.RESPONSE_FAIL):
             return False
         return True
+    
+    # Funzione che effettua alcuni controlli sul formato della stringa di comando necessari ai comandi get e put.
+    def chekGetAndPut(self, l_data, data):
+        file_name=None
+        if l_data.startswith('put'):
+            try:
+                file_name = str.split(str(data), ' ', 2)[1]
+            except:
+                print('Errore nalla scrittura del comando, reinserirlo correttamente', flush = True)
+                return (False, file_name)
+            if not isfile('./' + file_name):
+                file_data='File non trovato, reinserire comando completo.\r\n'
+                print(file_data, flush = True)
+                return (False, file_name)
+        if l_data.startswith('get'):
+            try:
+                file_name = str.split(str(data), ' ', 2)[1]
+            except:
+                print('Errore nalla scrittura del comando, reinserirlo correttamente', flush = True)
+                return (False, file_name)
+        return (True, file_name)
+    
+    # Semplice funzione che mostra la risposta ricevuta dal server in seguito all'invio del comando. E' utile principalmente in caso di comando exit.
+    def showServerResponse(self):
+        resp, server_address = self.sock.recvfrom(BUF_SIZE)
+        content = resp.decode()
+        print('\n', content, '\n', flush = True)  
     
     def get_list(self):
         resp, server_address = self.sock.recvfrom(BUF_SIZE)
@@ -128,40 +157,24 @@ class UDPClient:
         finally:
             file.close()
 
+
+    # Funzione che gestisce le richieste del client e le invia al server.
     def interact_with_server(self):
-        ''' Send request to a UDP Server and receive reply from it. '''
         try:
+            # Si prova ad instaurare la connessione tra client e server, bloccando il processo client in caso di errore di instaurazione.
             if not self.connection_setup():
                return
             while True:
+                # Inserimento comando da spedire.
                 data=input('Inserire comando: ')
                 l_data = data.lower()
-                t1=time.time()
-                
-                if l_data.startswith('put'):
-                    try:
-                        file_name = str.split(str(data), ' ', 2)[1]
-                    except:
-                        print('Errore nalla scrittura del comando, reinserirlo correttamente', flush = True)
-                        continue
-                    
-                    if not isfile('./' + file_name):
-                        file_data='File non trovato, reinserire comando completo.\r\n'
-                        print(file_data, flush = True)
-                        continue
-
-                if l_data.startswith('get'):
-                    try:
-                        file_name = str.split(str(data), ' ', 2)[1]
-                    except:
-                        print('Errore nalla scrittura del comando, reinserirlo correttamente', flush = True)
-                        continue
-
-                self.sock.sendto(str(data).encode('utf-8'), (self.host, self.port))
+                t1=time.time()  # Semplice timer a fini puramente statistici.
+                [controllo, file_name] = self.chekGetAndPut(l_data, data)
+                if not controllo:
+                    continue
+                self.sock.sendto(str(data).encode('utf-8'), (self.host, self.port)) # Invio del comando al server.
                 if l_data == 'exit' :
-                    resp, server_address = self.sock.recvfrom(BUF_SIZE)
-                    content = resp.decode()
-                    print('\n', content, '\n', flush = True)
+                    self.showServerResponse()
                     return
                 elif l_data.startswith('list'):
                     self.get_list()
@@ -170,20 +183,18 @@ class UDPClient:
                 elif l_data.startswith('put'):  
                     self.put_file(file_name)
                 else :
-                    resp, server_address = self.sock.recvfrom(BUF_SIZE)
-                    content = resp.decode()
-                    print('\n', content, '\n', flush = True)    
-                print('Tempo ricezione risposta: ', (time.time()-t1), flush = True)
+                    self.showServerResponse()
+                print('Tempo ricezione risposta in secondi: ', (time.time()-t1), flush = True)
         except OSError as err:
             print(err, flush = True)
         except KeyboardInterrupt:
             return
         finally:
-            # close socket
+            # Chiusura socket.
             self.sock.close()
 
 def main():
-    ''' Create a UDP Client, send message to a UDP Server and receive reply. '''
+    # Si crea il client UDP e si configurano si uoi parametri. Infine, si instaura l'interazione con il server UDP.
     udp_client = UDPClient('127.0.0.1', 10002)
     udp_client.configure_client()
     udp_client.interact_with_server()

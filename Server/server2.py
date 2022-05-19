@@ -188,14 +188,14 @@ class ServerThread(threading.Thread):
         if len(content) == 2:
             c_data = content[1]
         
-        if data == 'list':
+        if data.lower() == 'list':
             print(self.clients[client_ind][0] + ': Listing')
             self.listing(self.clients[client_ind])
         elif cmd == 'put':
             self.putting(c_data, client_ind)
         elif cmd == 'get':
             self.getting(c_data, client_ind)
-        elif data == 'exit':
+        elif data.lower() == 'exit':
             self.exiting(c_data, client_ind)
         else:
             c_data = Response.RESPONSE_FAIL + ' Comando sconosciuto'
