@@ -31,7 +31,7 @@ class UDPClient:
         return True
     
     # Funzione che effettua alcuni controlli sul formato della stringa di comando necessari ai comandi get e put.
-    def chekGetAndPut(self, lower_command_inserted, command_inserted):
+    def check_get_and_put(self, lower_command_inserted, command_inserted):
         file_name=None
         if lower_command_inserted.startswith('put'):
             try:
@@ -52,13 +52,13 @@ class UDPClient:
         return True, file_name
     
     # Semplice funzione che mostra la risposta ricevuta dal server in seguito all'invio del comando. E' utile principalmente in caso di comando exit.
-    def showServerResponse(self):
+    def show_server_response(self):
         resp, server_address = self.sock.recvfrom(BUF_SIZE)
         print('\n', resp.decode(), '\n', flush = True)  
     
-    # Funzione che gestisce il comando list. Nella pratica, coincide con la funzione showServerResponse.
+    # Funzione che gestisce il comando list. Nella pratica, coincide con la funzione show_erver_response.
     def get_list(self):
-        self.showServerResponse()
+        self.show_server_response()
     
     # Funzione che gestisce il comando get.
     def get_file(self, command_inserted):
@@ -169,14 +169,14 @@ class UDPClient:
                 command=input('Inserire comando: ')
                 lower_command = command.lower()
                 t1=time.time()  # Semplice timer a fini puramente statistici.
-                [flag, file_name] = self.chekGetAndPut(lower_command, command)
+                [flag, file_name] = self.check_get_and_put(lower_command, command)
                 if not flag:
                     continue
                 self.sock.sendto(str(command).encode('utf-8'), (self.host, self.port)) # Invio del comando al server.
                 
                 # Identificazione comando.
                 if lower_command == 'exit' :
-                    self.showServerResponse()
+                    self.show_server_response()
                     return
                 elif lower_command.startswith('list'):
                     self.get_list()
@@ -185,7 +185,7 @@ class UDPClient:
                 elif lower_command.startswith('put'):  
                     self.put_file(file_name)
                 else :
-                    self.showServerResponse()
+                    self.show_server_response()
                 print('Tempo ricezione risposta in secondi: ', (time.time()-t1), flush = True)
         except OSError as err:
             print(err, flush = True)

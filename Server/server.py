@@ -51,7 +51,7 @@ class ServerThread(threading.Thread):
                         self.files.append('')
                     client_index = self.clients.index(address)
                     self.handle_request(client_index, data)
-                    self.check_for_closed_conns()   # Alternativa all'uso di un lock.
+                    self.check_for_closed_connections()   # Alternativa all'uso di un lock.
                 except OSError:
                     self.norecv = True
                     continue
@@ -59,60 +59,60 @@ class ServerThread(threading.Thread):
             self.sock.close()
     
     # Funzione di apertura nuova connessione.
-    def connection_opening(self, client_ind, data):
+    def connection_opening(self, client_index, data):
             if str.split(data.decode('utf-8'), ' ', 2)[0] == Response.RESPONSE_HELLO:
                 # Invio messaggio di benvenuto e lista comandi disponibili.
-                self.states[client_ind] = State.STATE_REGULAR
+                self.states[client_index] = State.STATE_REGULAR
                 welcome_message = '\r\nBenvenuto sul Server come posso rendermi utile?\r\n\r\nOpzioni disponibili:\r\n\r\n\tlist -> \t\tRestituisce la lista dei nomi dei file disponibili.\r\n\tget <NomeFile> -> Restituisce il file se disponibile.\r\n\tput <NomeFile> -> Carica il file se disponibile.\r\n\t\texit -> \t\tEsce\r'
-                self.sock.sendto(welcome_message.encode(), self.clients[client_ind])
-                print(self.clients[client_ind][0] + ': Client connesso')
+                self.sock.sendto(welcome_message.encode(), self.clients[client_index])
+                print(self.clients[client_index][0] + ': Client connesso')
             else:
                 failure_message = '\r\n' + Response.RESPONSE_FAIL + ' connessione incorretta\r\n'
-                self.sock.sendto(failure_message.encode(), self.clients[client_ind])
-                print(self.clients[client_ind][0] + ': Fallimento connessione')
-                self.states[client_ind] = State.STATE_CLOSED  # Connessione chiusa
+                self.sock.sendto(failure_message.encode(), self.clients[client_index])
+                print(self.clients[client_index][0] + ': Fallimento connessione')
+                self.states[client_index] = State.STATE_CLOSED  # Connessione chiusa
     
     # Questa funzione viene eseguita in seguito al cambio di stato operato dal comando put.
-    def wait_for_file_status(self, client_ind, data):
+    def wait_for_file_status(self, client_index, data):
         content = data.decode('utf-8')
         if content == Response.RESPONSE_DATA:
             # Se il client comunica di spedire altri dati aggiorniamo lo stato in modo da permettere la scrittura di tali dati.
             response = Response.RESPONSE_OK + ' In attesa...'
-            self.sock.sendto(response.encode(), self.clients[client_ind])
+            self.sock.sendto(response.encode(), self.clients[client_index])
             #print(self.clients[client_ind][0] + ': In attesa...')
-            self.states[client_ind] = State.STATE_WAITFORFILEDATA
+            self.states[client_index] = State.STATE_WAITFORFILEDATA
         elif content == Response.RESPONSE_DONE:
             # Invece, se il client comunica di aver finito l'upload, lo stato sarà regolare (in attesa del prossimo comando.)
             response = Response.RESPONSE_OK + ' File chiuso'
-            self.sock.sendto(response.encode(), self.clients[client_ind])
-            print(self.clients[client_ind][0] + ': File chiuso')
-            self.files[client_ind].close()                           # Chiusura file
-            self.files[client_ind] = ''
-            self.states[client_ind] = State.STATE_REGULAR
+            self.sock.sendto(response.encode(), self.clients[client_index])
+            print(self.clients[client_index][0] + ': File chiuso')
+            self.files[client_index].close()                           # Chiusura file
+            self.files[client_index] = ''
+            self.states[client_index] = State.STATE_REGULAR
         else:
             # In caso di errori.
             response = Response.RESPONSE_FAIL + ' Comando errato. Ricezione abortita'
-            self.sock.sendto(response.encode(), self.clients[client_ind])
-            print(self.clients[client_ind][0] + ': Comando errato. Ricezione abortita')
-            self.files[client_ind].close()  # Chiusura file.
-            self.files[client_ind] = ''
-            self.states[client_ind] = State.STATE_REGULAR
+            self.sock.sendto(response.encode(), self.clients[client_index])
+            print(self.clients[client_index][0] + ': Comando errato. Ricezione abortita')
+            self.files[client_index].close()  # Chiusura file.
+            self.files[client_index] = ''
+            self.states[client_index] = State.STATE_REGULAR
     
     # Questa funzione gestisce lo stato del server STATE_WAITFORFILEDATA. 
-    def wait_for_file_data(self, client_ind, data):
+    def wait_for_file_data(self, client_index, data):
         # Si effettua la put vera e propria, scrivendo i dati ricevuti sul file creato.
         try:
-            file = self.files[client_ind]
+            file = self.files[client_index]
             file.write(data)
             response = Response.RESPONSE_OK + ' Dato scritto'
-            self.sock.sendto(response.encode(), self.clients[client_ind])
+            self.sock.sendto(response.encode(), self.clients[client_index])
             #print(self.clients[client_ind][0] + ': Dato scritto')
-            self.states[client_ind] = State.STATE_WAITFORFILESTATUS  # Attesa della prossima direttiva
+            self.states[client_index] = State.STATE_WAITFORFILESTATUS  # Attesa della prossima direttiva
         except Exception as info:
             print(info)
             response = Response.RESPONSE_FAIL + ' Errore'
-            self.sock.sendto(response.encode(), self.clients[client_ind])
-            self.states[client_ind] = State.STATE_REGULAR
+            self.sock.sendto(response.encode(), self.clients[client_index])
+            self.states[client_index] = State.STATE_REGULAR
     
     # Funzione che gestisce il comando list.
     def listing(self, destinationAddress):
@@ -269,7 +269,7 @@ class ServerThread(threading.Thread):
             self.send_complete(client_index)
             
     # Funzione di controllo ed eliminazione riferimenti a connessioni chiuse.
-    def check_for_closed_conns(self):
+    def check_for_closed_connections(self):
         # Si controlla se esistono connessioni chiuse, in modo da aggiornare le strutture dati.
         closed = []
         for i in range(0, len(self.clients)):
