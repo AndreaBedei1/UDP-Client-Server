@@ -16,27 +16,26 @@ class UDPClient:
         self.sock = None    # Socket.
 
     def configure_client(self):
-        # Creazione client socket usando protocollo UDP con indirizzamento IPV4.
+        # Creazione client socket usando protocollo UDP con indirizzamento IPv4.
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         print('Socket creato', flush = True)
         
     # Funzione che tenta d'instaurare la connessione tra client e server, restituendo un booleano.
     def connection_setup(self):
-        msg = Response.RESPONSE_HELLO + ' Client connected'
-        self.sock.sendto(msg.encode('utf-8'), (self.host, self.port))
+        hello_message = Response.RESPONSE_HELLO + ' Client connected'
+        self.sock.sendto(hello_message.encode('utf-8'), (self.host, self.port))
         resp, server_address = self.sock.recvfrom(BUF_SIZE)
-        content = resp.decode()
-        print('\n', content, '\n', flush = True)
-        if content.startswith(Response.RESPONSE_FAIL):
+        print('\n', resp.decode(), '\n', flush = True)
+        if resp.decode().startswith(Response.RESPONSE_FAIL):
             return False
         return True
     
     # Funzione che effettua alcuni controlli sul formato della stringa di comando necessari ai comandi get e put.
-    def chekGetAndPut(self, l_data, data):
+    def chekGetAndPut(self, lower_command_inserted, command_inserted):
         file_name=None
-        if l_data.startswith('put'):
+        if lower_command_inserted.startswith('put'):
             try:
-                file_name = str.split(str(data), ' ', 2)[1]
+                file_name = str.split(str(command_inserted), ' ', 2)[1]
             except:
                 print('Errore nalla scrittura del comando, reinserirlo correttamente', flush = True)
                 return False, file_name
@@ -44,9 +43,9 @@ class UDPClient:
                 file_data='File non trovato, reinserire comando completo.\r\n'
                 print(file_data, flush = True)
                 return False, file_name
-        if l_data.startswith('get'):
+        if lower_command_inserted.startswith('get'):
             try:
-                file_name = str.split(str(data), ' ', 2)[1]
+                file_name = str.split(str(command_inserted), ' ', 2)[1]
             except:
                 print('Errore nalla scrittura del comando, reinserirlo correttamente', flush = True)
                 return (False, file_name)
@@ -55,35 +54,32 @@ class UDPClient:
     # Semplice funzione che mostra la risposta ricevuta dal server in seguito all'invio del comando. E' utile principalmente in caso di comando exit.
     def showServerResponse(self):
         resp, server_address = self.sock.recvfrom(BUF_SIZE)
-        content = resp.decode()
-        print('\n', content, '\n', flush = True)  
+        print('\n', resp.decode(), '\n', flush = True)  
     
-    # Funzione che gestisce il comando list.
+    # Funzione che gestisce il comando list. Nella pratica, coincide con la funzione showServerResponse.
     def get_list(self):
-        resp, server_address = self.sock.recvfrom(BUF_SIZE)
-        content = resp.decode()
-        print('\n', content, '\n', flush = True)
+        self.showServerResponse()
     
     # Funzione che gestisce il comando get.
-    def get_file(self, data):
+    def get_file(self, command_inserted):
         # Controlli preliminari sul nome del file che si vuole ottenere.
-        file_name = str.split(str(data), ' ', 2)[1]
+        file_name = str.split(str(command_inserted), ' ', 2)[1]
         if isfile('./' + file_name):
             print('Esiste già un file con questo nome nella cartella, ma verrà sovrascritto', flush = True)
         resp, server_address = self.sock.recvfrom(BUF_SIZE)
-        receiving = False
+        receiving_file_content = False
         if str(resp.decode()).startswith(Response.RESPONSE_FAIL):
             print('File inesistente sul server', flush = True)
             return
         try:       
             # Inizio sequenza di download del file.
-            file = open('./' + file_name , 'wb')    # Creazione nuovo file con il nome del file che si vuole scaricare dal server.
+            destination_file = open('./' + file_name , 'wb')    # Creazione nuovo file con il nome del file che si vuole scaricare dal server.
             print('File creato nella cartella corrente', flush = True)
             if resp.decode('utf-8').startswith(Response.RESPONSE_OK):
                 self.sock.sendto(Response.RESPONSE_OK.encode(), (self.host, self.port))
                 print("Inizio ricezione, attendere...")
-                receiving = True    # Booleano che indica se il client è pronto a ricevere il contenuto effettivo del file.
-            while receiving:
+                receiving_file_content = True    # Booleano che indica se il client è pronto a ricevere il contenuto effettivo del file.
+            while receiving_file_content:
                 # Inizio sequenza di download effettivo del contenuto del file.
                 resp, server_address = self.sock.recvfrom(BUF_SIZE)
                 if resp.decode('utf-8') == Response.RESPONSE_DATA:  # Se il server comunica di aver inviato degli altri dati.
@@ -91,29 +87,29 @@ class UDPClient:
                     self.sock.sendto(Response.RESPONSE_OK.encode(), (self.host, self.port))
                     #print('Invio OK dopo status', flush = True)
                     resp, server_address = self.sock.recvfrom(BUF_SIZE)
-                    file.write(resp)
+                    destination_file.write(resp)
                     #print('Ricezione dati', flush = True)
                     self.sock.sendto(Response.RESPONSE_OK.encode(), (self.host, self.port))
                     #print('Invio OK dopo dati', flush = True)
                 elif resp.decode('utf-8') == Response.RESPONSE_DONE:    # Se il server comunica di aver terminato l'invio del suo file.
-                    file.close()
+                    destination_file.close()
                     print('Ricezione conclusa', flush = True)
                     self.sock.sendto(Response.RESPONSE_OK.encode(), (self.host, self.port))
-                    receiving = False
+                    receiving_file_content = False
                 else:   # Qualche errore è accaduto sul server.
-                    file.close()
-                    receiving = False
+                    destination_file.close()
+                    receiving_file_content = False
         except Exception as info:
             print(info, flush = True)
         finally:
-            file.close()
+            destination_file.close()
         
     # Funzione che gestisce il comando put.
     def put_file(self, file_name):
         resp, server_address = self.sock.recvfrom(BUF_SIZE)
-        r = resp.decode('utf-8')
-        if r.startswith(Response.RESPONSE_FAIL):
-            print(r + '\n', flush = True)
+        resp = resp.decode('utf-8')
+        if resp.startswith(Response.RESPONSE_FAIL):
+            print(resp + '\n', flush = True)
             return
         print("Inizio invio...", flush = True)
         try:
@@ -123,15 +119,15 @@ class UDPClient:
             
             # Scrittura dell'avanzamento percentuale di upload.
             file_size = os.path.getsize(file_path)
-            perc = 0
+            percentage = 0
             tenth = file_size / 10
             threshold = tenth 
             content = file.read(BUF_SIZE)
             while content:
-                pos = file.tell()
-                if pos >= threshold:
-                    perc = perc + 10
-                    print(str(perc) + '%', flush = True)
+                position = file.tell()
+                if position >= threshold:
+                    percentage = percentage + 10
+                    print(str(percentage) + '%', flush = True)
                     threshold = threshold + tenth
                 
                 # Inizio upload effettivo del file.
@@ -170,23 +166,23 @@ class UDPClient:
                return
             while True:
                 # Inserimento comando da spedire.
-                data=input('Inserire comando: ')
-                l_data = data.lower()
+                command=input('Inserire comando: ')
+                lower_command = command.lower()
                 t1=time.time()  # Semplice timer a fini puramente statistici.
-                [controllo, file_name] = self.chekGetAndPut(l_data, data)
-                if not controllo:
+                [flag, file_name] = self.chekGetAndPut(lower_command, command)
+                if not flag:
                     continue
-                self.sock.sendto(str(data).encode('utf-8'), (self.host, self.port)) # Invio del comando al server.
+                self.sock.sendto(str(command).encode('utf-8'), (self.host, self.port)) # Invio del comando al server.
                 
                 # Identificazione comando.
-                if l_data == 'exit' :
+                if lower_command == 'exit' :
                     self.showServerResponse()
                     return
-                elif l_data.startswith('list'):
+                elif lower_command.startswith('list'):
                     self.get_list()
-                elif l_data.startswith('get'):
-                    self.get_file(data)
-                elif l_data.startswith('put'):  
+                elif lower_command.startswith('get'):
+                    self.get_file(command)
+                elif lower_command.startswith('put'):  
                     self.put_file(file_name)
                 else :
                     self.showServerResponse()
