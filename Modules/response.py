@@ -1,3 +1,4 @@
+# Semplice classe contenente la definizione di alcune costanti utili.
 BUF_SIZE = 4096
 
 class Response:

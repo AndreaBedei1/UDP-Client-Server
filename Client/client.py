@@ -11,7 +11,7 @@ from Modules.response import BUF_SIZE
 class UDPClient:
     # Costruttore.
     def __init__(self, host, port):
-        self.host = host    # Indiizzo host.
+        self.host = host    # Indirizzo host.
         self.port = port    # Porta host.
         self.sock = None    # Socket.
 
