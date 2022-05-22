@@ -33,7 +33,7 @@ class ServerThread(threading.Thread):
         self.norecv = False
         
         # Associamo il socket alla porta.
-        print ('\n\r Starting up on %s port %s' % server_address)
+        print ('\n\rStarting up on %s port %s' % server_address)
         self.sock.bind(server_address)
 
     # Metodo del thread.
