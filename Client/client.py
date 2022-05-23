@@ -46,6 +46,9 @@ class UDPClient:
         if lower_command_inserted.startswith('get'):
             try:
                 file_name = str.split(str(command_inserted), ' ', 2)[1]
+                if '../' in file_name: 
+                    print('Percorso illegale', flush= True)
+                    return (False, file_name)
             except:
                 print('Errore nalla scrittura del comando, reinserirlo correttamente', flush = True)
                 return (False, file_name)
@@ -54,7 +57,7 @@ class UDPClient:
     # Semplice funzione che mostra la risposta ricevuta dal server in seguito all'invio del comando. E' utile principalmente in caso di comando exit.
     def show_server_response(self):
         resp, server_address = self.sock.recvfrom(BUF_SIZE)
-        print('\n', resp.decode(), '\n', flush = True)  
+        print(resp.decode(), flush = True)  
     
     # Funzione che gestisce il comando list. Nella pratica, coincide con la funzione show_erver_response.
     def get_list(self):
@@ -63,7 +66,7 @@ class UDPClient:
     # Funzione che gestisce il comando get.
     def get_file(self, command_inserted):
         # Controlli preliminari sul nome del file che si vuole ottenere.
-        file_name = str.split(str(command_inserted), ' ', 2)[1]
+        file_name = str.split(str(command_inserted), ' ', 2)[1]            
         if isfile('./' + file_name):
             print('Esiste già un file con questo nome nella cartella, ma verrà sovrascritto', flush = True)
         resp, server_address = self.sock.recvfrom(BUF_SIZE)
@@ -111,25 +114,12 @@ class UDPClient:
         if resp.startswith(Response.RESPONSE_FAIL):
             print(resp + '\n', flush = True)
             return
-        print('Inizio invio...', flush = True)
         try:
             # Inizio sequenza di upload.
             file_path = './' + file_name
             file = open(file_path, 'rb')
-            
-            # Scrittura dell'avanzamento percentuale di upload.
-            file_size = os.path.getsize(file_path)
-            percentage = 0
-            tenth = file_size / 10
-            threshold = tenth 
             content = file.read(BUF_SIZE)
             while content:
-                position = file.tell()
-                if position >= threshold:
-                    percentage = percentage + 10
-                    print(str(percentage) + '%', flush = True)
-                    threshold = threshold + tenth
-                
                 # Inizio upload effettivo del file.
                 self.sock.sendto(Response.RESPONSE_DATA.encode('utf-8'), (self.host, self.port))    # Invio stato.
                 resp, server_address = self.sock.recvfrom(BUF_SIZE)     # Attesa risposta dopo l'invio dello stato.
