@@ -57,6 +57,12 @@ class ServerThread(threading.Thread):
                     continue
         finally:
             self.sock.close()
+            
+    def send_message(self, client_ind, response_type, message):       # Da usare in giro
+        response = '\r\n' + response_type + ' ' + message + '\r\n'
+        self.sock.sendto(response.encode(), self.clients[client_ind])
+        print(self.clients[client_ind][0] + ': ' + message)
+
     
     # Funzione di apertura nuova connessione.
     def connection_opening(self, client_index, data):
@@ -83,17 +89,13 @@ class ServerThread(threading.Thread):
             self.states[client_index] = State.STATE_WAITFORFILEDATA
         elif content == Response.RESPONSE_DONE:
             # Invece, se il client comunica di aver finito l'upload, lo stato sarà regolare (in attesa del prossimo comando.)
-            response = Response.RESPONSE_OK + ' File chiuso'
-            self.sock.sendto(response.encode(), self.clients[client_index])
-            print(self.clients[client_index][0] + ': File chiuso')
+            self.send_message(client_index, Response.RESPONSE_OK, 'File chiuso')
             self.files[client_index].close()                           # Chiusura file
             self.files[client_index] = ''
             self.states[client_index] = State.STATE_REGULAR
         else:
             # In caso di errori.
-            response = Response.RESPONSE_FAIL + ' Comando errato. Ricezione abortita'
-            self.sock.sendto(response.encode(), self.clients[client_index])
-            print(self.clients[client_index][0] + ': Comando errato. Ricezione abortita')
+            self.send_message(client_index, Response.RESPONSE_FAIL, 'Comando errato. Ricezione abortita')
             self.files[client_index].close()  # Chiusura file.
             self.files[client_index] = ''
             self.states[client_index] = State.STATE_REGULAR
@@ -136,17 +138,13 @@ class ServerThread(threading.Thread):
             self.send_message(client_index, Response.RESPONSE_FAIL, 'Percorso o file illegale')
             return
         if exists('./file/'+ file_name):
-            response = Response.RESPONSE_FAIL + ' File già esistente'
-            print(self.clients[client_index][0] + ': File già esistente')
-            self.sock.sendto(response.encode(), self.clients[client_index]);
+            self.send_message(client_index, Response.RESPONSE_FAIL, 'File già esistente')
             return
         # Inizio sequenza di download del file inviato dal client.
         print(self.clients[client_index][0] + ': Ricevuta richiesta put')
         self.states[client_index] = State.STATE_WAITFORFILESTATUS     # Passaggio allo stato di attesa di invio.
         self.files[client_index] = open('./file/'+ file_name, 'wb')
-        response='OK In attesa del file...'
-        print(self.clients[client_index][0] + ': In attesa del file...')
-        self.sock.sendto(response.encode(), self.clients[client_index])
+        self.send_message(client_index, Response.RESPONSE_OK, 'In attesa del file...')
         print(self.clients[client_index][0] + ': Inizio trasferimento')
     
     # Funzione che gestisce il comando get. In realtà, questa funzione s'occupa solo di cambiare lo stato del server per permettere la get vera e propria.
@@ -159,15 +157,11 @@ class ServerThread(threading.Thread):
                 # Invio del nome del file e cambiamento di stato.
                 print(self.clients[client_index][0] + ': Richiesta get su file ' + file_name)
                 self.files[client_index] = open('./file/'+ file_name, 'rb')
-                response = Response.RESPONSE_OK + ' File disponibile'
-                self.sock.sendto(response.encode(), self.clients[client_index])
-                print(self.clients[client_index][0] + ': File disponibile')
+                self.send_message(client_index, Response.RESPONSE_OK, 'File disponibile')
                 self.states[client_index] = State.STATE_SENDFILESTATUS
             except Exception as info:
                 print(info)
-                response = Response.RESPONSE_FAIL + ' Errore: invio abortito'
-                self.sock.sendto(response.encode(), self.clients[client_index])
-                print(self.clients[client_index][0] + ': Errore: invio abortito')
+                self.send_message(client_index, Response.RESPONSE_FAIL, 'Errore: invio abortito')
                 self.states[client_index] = State.STATE_REGULAR
                 try:
                     self.files[client_index].close()
@@ -180,9 +174,7 @@ class ServerThread(threading.Thread):
     
     # Funzione che gestice il comando exit. In realtà si occupa solo di aggiornare lo stato del server.
     def exiting(self, client_index):
-        c_data = Response.RESPONSE_OK + ' Connessione conclusa'
-        self.sock.sendto(c_data.encode(), self.clients[client_index])
-        print(self.clients[client_index][0] + ': Chiusura connessione')
+        self.send_message(client_index, Response.RESPONSE_OK, 'Connessione conclusa')
         self.states[client_index] = State.STATE_CLOSED    # Connessione chiusa.
     
     # Funzione core che gestisce la richiesta di uno specifico comando. 
@@ -206,9 +198,7 @@ class ServerThread(threading.Thread):
         elif command_inserted.lower() == 'exit':
             self.exiting(client_index)
         else:
-            command = Response.RESPONSE_FAIL + ' Comando sconosciuto'
-            self.sock.sendto(command.encode(), self.clients[client_index])
-            print(self.clients[client_index][0] + ': Comando sconosciuto')
+            self.send_message(client_index, Response.RESPONSE_FAIL, 'Comando sconosciuto')
          
     # Questa funzione viene eseguita in seguito al cambio di stato operato dal comando get.
     def send_file_status(self, client_index, data):
