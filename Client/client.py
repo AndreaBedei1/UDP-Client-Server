@@ -77,7 +77,7 @@ class UDPClient:
             print('File creato nella cartella corrente', flush = True)
             if resp.decode('utf-8').startswith(Response.RESPONSE_OK):
                 self.sock.sendto(Response.RESPONSE_OK.encode(), (self.host, self.port))
-                print("Inizio ricezione, attendere...")
+                print('Inizio ricezione, attendere...')
                 receiving_file_content = True    # Booleano che indica se il client è pronto a ricevere il contenuto effettivo del file.
             while receiving_file_content:
                 # Inizio sequenza di download effettivo del contenuto del file.
@@ -111,7 +111,7 @@ class UDPClient:
         if resp.startswith(Response.RESPONSE_FAIL):
             print(resp + '\n', flush = True)
             return
-        print("Inizio invio...", flush = True)
+        print('Inizio invio...', flush = True)
         try:
             # Inizio sequenza di upload.
             file_path = './' + file_name
@@ -140,21 +140,21 @@ class UDPClient:
                         content = file.read(BUF_SIZE) # Lettura della prossima sezione del file da inviare.
                     else:
                         # Errore del server, bisogna terminare immediatamente l'invio.
-                        print("Errore ricevuto. Chiusura file...", flush = True)
+                        print('Errore ricevuto. Chiusura file...', flush = True)
                         return         
                 else:
                     # Errore nel server: il suo stato attuale non permette l'invio il file.
-                    print("Errore ricevuto. Chiusura file...", flush = True)
+                    print('Errore ricevuto. Chiusura file...', flush = True)
                     return   
                 
             # Terminazione invio file.
-            print("Invio stato DONE. Chiusura file...", flush = True)
+            print('Invio stato DONE. Chiusura file...', flush = True)
             self.sock.sendto(Response.RESPONSE_DONE.encode('utf-8'), (self.host, self.port))    # Invio segnale di terminazione del file.
             resp, server_address = self.sock.recvfrom(BUF_SIZE)     # Attesa risposta dopo la terminazione del file.
             if resp.decode('utf-8').startswith(Response.RESPONSE_OK):
-                print("Invio completato con successo", flush = True)
+                print('Invio completato con successo', flush = True)
             else:
-                print("Invio completato con errori", flush = True)
+                print('Invio completato con errori', flush = True)
         finally:
             file.close()
 
@@ -166,6 +166,7 @@ class UDPClient:
                return
             while True:
                 # Inserimento comando da spedire.
+                print('-' * 30, flush = True)
                 command=input('Inserire comando: ')
                 lower_command = command.lower()
                 t1=time.time()  # Semplice timer a fini puramente statistici.
