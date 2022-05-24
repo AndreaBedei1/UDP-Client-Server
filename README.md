@@ -1,2 +1,2 @@
 # UDP_SERVER
-For more info read the relation.
+For more info read the report.
